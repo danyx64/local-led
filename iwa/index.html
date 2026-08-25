@@ -10,7 +10,7 @@
 <body>
   <main class="shell">
     <header>
-      <div><span class="eyebrow">LOCAL LED · IWA</span><h1>ZENGGE Wi‑Fi diretto</h1><p>TCP locale dal browser, senza bridge esterno.</p></div>
+      <div><span class="eyebrow">LOCAL LED · IWA</span><h1>ZENGGE Wi‑Fi diretto</h1><p>TCP e UDP locali dal browser, senza bridge esterno.</p></div>
       <span id="apiBadge" class="badge">CONTROLLO API</span>
     </header>
 
@@ -22,7 +22,8 @@
           <label for="subnet">Subnet</label>
           <div class="row"><input id="subnet" value="192.168.1" inputmode="decimal"><button id="scanBtn">Cerca</button></div>
           <div class="row"><input id="manualIp" placeholder="192.168.1.50" inputmode="decimal"><button id="addBtn" class="secondary">Aggiungi IP</button></div>
-          <p id="scanText">La ricerca prova la porta TCP 5577 e verifica una risposta ZENGGE.</p>
+          <button id="diagBtn" class="secondary" style="width:100%;margin-top:8px">Diagnostica IP</button>
+          <p id="scanText">La ricerca prova TCP 5577. Il diagnostico interroga anche UDP 48899 per modello e firmware.</p>
         </div>
       </aside>
 
@@ -42,7 +43,7 @@
       </section>
     </section>
 
-    <footer><span>Direct Sockets · TCP 5577</span><span id="footerText">Pronta per test ZENGGE</span></footer>
+    <footer><span>Direct Sockets · TCP 5577 · UDP 48899</span><span id="footerText">Pronta per test ZENGGE</span></footer>
   </main>
   <div id="toast" class="toast"></div>
   <script type="module" src="app.js"></script>
