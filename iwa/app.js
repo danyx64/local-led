@@ -1,4 +1,4 @@
-import { ZenggeDevice, probeZengge, diagnoseZengge } from './zengge.js';
+import { ZenggeDevice, probeZengge, diagnoseZengge, scanCommonTcpPorts } from './zengge.js';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -44,7 +44,7 @@ function render() {
 function select(id) {
   const d = loadDevices().find(x => x.id === id); if (!d) return;
   current = d; Object.assign(state, { power:true, brightness:75, temperature:4200, color:'#7c5cff', mode:'color' }, loadSettings()[id] || {});
-  $('#deviceName').textContent = d.name; $('#statusBadge').textContent = d.port ? 'PRONTA' : 'RILEVATA'; $('#statusBadge').classList.add('ok'); $('#footerText').textContent = d.port ? `${d.ip}:${d.port}` : `${d.ip} · UDP rilevata`;
+  $('#deviceName').textContent = d.name; $('#statusBadge').textContent = d.port ? 'PRONTA' : 'RILEVATA'; $('#statusBadge').classList.add('ok'); $('#footerText').textContent = d.port ? `${d.ip}:${d.port}` : `${d.ip} · rilevata`;
   localStorage.setItem('localLedIwaSelected', id); applyUi(); render();
 }
 function addDevice(ip, meta = {}) {
@@ -118,6 +118,34 @@ $('#diagBtn').onclick = async () => {
   } catch (e) {
     $('#scanText').textContent = `Errore diagnostica: ${e.message}`; toast(e.message);
   } finally { $('#diagBtn').disabled = false; }
+};
+$('#advancedDiagBtn').onclick = async () => {
+  const ip = $('#manualIp').value.trim(); if (!validIp(ip)) return toast('IP non valido');
+  const button = $('#advancedDiagBtn'); const box = $('#advancedResults');
+  button.disabled = true; box.hidden = false; box.textContent = 'Avvio diagnostica avanzata…';
+  try {
+    const classic = await diagnoseZengge(ip);
+    const openPorts = await scanCommonTcpPorts(ip, p => {
+      $('#scanText').textContent = `Diagnostica avanzata ${p.done}/${p.total} · ultima TCP ${p.port}${p.open ? ' APERTA' : ''}`;
+    });
+    const lines = [];
+    lines.push(`IP: ${ip}`);
+    lines.push(`UDP 48899: ${classic.udp48899 ? 'risponde' : 'nessuna risposta'}`);
+    lines.push(`TCP 5577: ${classic.tcp5577 ? 'ZENGGE OK' : 'non disponibile'}`);
+    if (classic.discovery) lines.push(`Discovery: ${classic.discovery}`);
+    if (classic.version) lines.push(`Versione: ${classic.version}`);
+    if (openPorts.length) {
+      lines.push(`Porte TCP aperte: ${openPorts.map(p => p.port).join(', ')}`);
+      for (const port of openPorts) if (port.banner) lines.push(`TCP ${port.port}: ${port.banner}`);
+    } else {
+      lines.push('Nessuna delle porte TCP comuni ha accettato la connessione.');
+    }
+    box.textContent = lines.join('\n');
+    $('#scanText').textContent = openPorts.length ? `Diagnostica completata · ${openPorts.length} porte TCP aperte.` : 'Diagnostica completata · nessuna porta comune aperta.';
+    toast(openPorts.length ? `Trovate ${openPorts.length} porte aperte` : 'Nessuna porta TCP comune aperta');
+  } catch (e) {
+    box.textContent = `Errore: ${e.message}`; $('#scanText').textContent = `Errore diagnostica avanzata: ${e.message}`; toast(e.message);
+  } finally { button.disabled = false; }
 };
 $('#powerBtn').onclick = () => { state.power = !state.power; saveState(); applyUi(); queueSend('power', 0); };
 $('#brightness').oninput = e => { state.brightness = Number(e.target.value); $('#brightnessOut').textContent = `${state.brightness}%`; saveState(); queueSend(state.mode === 'white' ? 'white' : 'rgb', 120); };
