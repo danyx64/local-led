@@ -15,7 +15,7 @@
         <p class="eyebrow">LOCAL LED</p>
         <h1>Le tue luci, senza complicazioni.</h1>
       </div>
-      <button id="scanBtn" class="secondary-btn" type="button">Cerca lampade</button>
+      <a class="secondary-btn link-btn" href="discovery.html">⌁ Rileva lampade</a>
     </header>
 
     <section class="workspace" aria-label="Controllo lampada">
@@ -23,47 +23,32 @@
         <div class="section-heading">
           <div>
             <span class="label">LAMPADA</span>
-            <strong id="deviceName">Lampada demo</strong>
+            <strong id="deviceName">Nessuna lampada</strong>
           </div>
-          <span id="connectionBadge" class="status demo">DEMO</span>
+          <span id="connectionBadge" class="status demo">LOCALE</span>
         </div>
 
         <div class="device-list" id="deviceList"></div>
 
         <div class="connect-box">
-          <label for="deviceIp">IP lampada</label>
-          <div class="input-row">
-            <input id="deviceIp" inputmode="decimal" placeholder="192.168.1.50" autocomplete="off">
-            <button id="connectBtn" class="small-btn" type="button">Connetti</button>
-          </div>
-          <p id="connectionText" class="helper">Modalità demo attiva. Inserisci un IP quando avremo il driver della tua lampada.</p>
+          <p id="connectionText" class="helper">Le lampade salvate e le loro impostazioni restano memorizzate solo in questo browser.</p>
+          <a class="small-btn link-btn full-btn" href="discovery.html">+ Aggiungi o rileva lampada</a>
         </div>
       </aside>
 
       <section class="control-panel card">
         <div class="power-row">
-          <div>
-            <span class="label">STATO</span>
-            <strong id="powerText">Accesa</strong>
-          </div>
-          <button id="powerBtn" class="power-button is-on" type="button" aria-pressed="true">
-            <span class="power-icon">⏻</span>
-          </button>
+          <div><span class="label">STATO</span><strong id="powerText">Accesa</strong></div>
+          <button id="powerBtn" class="power-button is-on" type="button" aria-pressed="true"><span class="power-icon">⏻</span></button>
         </div>
 
         <div class="control-block">
-          <div class="control-title">
-            <span>Luminosità</span>
-            <output id="brightnessValue">75%</output>
-          </div>
+          <div class="control-title"><span>Luminosità</span><output id="brightnessValue">75%</output></div>
           <input id="brightness" type="range" min="1" max="100" value="75">
         </div>
 
         <div class="control-block">
-          <div class="control-title">
-            <span>Bianco</span>
-            <output id="temperatureValue">4200K</output>
-          </div>
+          <div class="control-title"><span>Bianco</span><output id="temperatureValue">4200K</output></div>
           <div class="temperature-labels"><span>Caldo</span><span>Freddo</span></div>
           <input id="temperature" class="temperature-slider" type="range" min="2700" max="6500" step="100" value="4200">
         </div>
@@ -80,23 +65,15 @@
 
       <section class="color-panel card">
         <div class="section-heading">
-          <div>
-            <span class="label">COLORE</span>
-            <strong>Scegli dalla tavolozza</strong>
-          </div>
+          <div><span class="label">COLORE</span><strong>Scegli dalla tavolozza</strong></div>
           <div id="colorDot" class="color-dot" aria-hidden="true"></div>
         </div>
-
         <div class="picker-wrap">
           <input id="colorPicker" type="color" value="#7c5cff" aria-label="Tavolozza colore">
           <button id="openPickerBtn" class="color-surface" type="button" aria-label="Apri tavolozza colore">
-            <span class="picker-center">
-              <span>TOCCA</span>
-              <strong id="hexValue">#7C5CFF</strong>
-            </span>
+            <span class="picker-center"><span>TOCCA</span><strong id="hexValue">#7C5CFF</strong></span>
           </button>
         </div>
-
         <div class="quick-actions">
           <button class="scene-btn" data-scene="warm" type="button">☀️ Caldo</button>
           <button class="scene-btn" data-scene="neutral" type="button">◐ Neutro</button>
@@ -105,12 +82,8 @@
       </section>
     </section>
 
-    <footer>
-      <span>Local LED</span>
-      <span id="footerStatus">Interfaccia pronta · controllo hardware in modalità demo</span>
-    </footer>
+    <footer><span>Local LED</span><span id="footerStatus">Impostazioni locali per dispositivo</span></footer>
   </main>
-
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>
 </body>
