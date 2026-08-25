@@ -2,7 +2,7 @@
   "name": "Local LED IWA",
   "short_name": "Local LED",
   "description": "Controllo locale di lampade ZENGGE/Magic Home via TCP e UDP Direct Sockets.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
