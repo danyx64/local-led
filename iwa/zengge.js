@@ -1,5 +1,6 @@
 const PORT = 5577;
 const DISCOVERY_PORT = 48899;
+const COMMON_TCP_PORTS = [80, 443, 1883, 1884, 6668, 6669, 7000, 8080, 8883, 8899, 9000, 9999, 5577, 38899, 48899];
 
 function checksum(bytes) {
   return bytes.reduce((sum, value) => (sum + value) & 0xff, 0);
@@ -98,6 +99,65 @@ async function udpRequest(ip, text, timeout = 1300) {
   } finally {
     try { await socket.close(); } catch {}
   }
+}
+
+async function probeTcpPort(ip, port, timeout = 500) {
+  if (!globalThis.TCPSocket) throw new Error('TCPSocket non disponibile');
+  const socket = new TCPSocket(ip, port, { noDelay: true });
+  let opened;
+  try {
+    opened = await Promise.race([socket.opened, timeoutPromise(timeout, `TCP ${port} timeout`)]);
+    return { port, open: true, banner: null };
+  } catch (error) {
+    return { port, open: false, error: error?.message || String(error) };
+  } finally {
+    if (opened) {
+      try { await socket.close(); } catch {}
+    }
+  }
+}
+
+async function probeHttp(ip, port, timeout = 700) {
+  const socket = new TCPSocket(ip, port, { noDelay: true });
+  let opened;
+  try {
+    opened = await Promise.race([socket.opened, timeoutPromise(timeout, `HTTP ${port} timeout`)]);
+    const writer = opened.writable.getWriter();
+    await writer.write(new TextEncoder().encode(`HEAD / HTTP/1.0\r\nHost: ${ip}\r\nConnection: close\r\n\r\n`));
+    writer.releaseLock();
+    const reader = opened.readable.getReader();
+    const result = await Promise.race([reader.read(), timeoutPromise(timeout, 'Nessun banner HTTP')]);
+    reader.releaseLock();
+    if (!result?.value) return null;
+    return new TextDecoder().decode(result.value).replace(/[\r\n]+/g, ' ').trim().slice(0, 180);
+  } catch {
+    return null;
+  } finally {
+    if (opened) {
+      try { await socket.close(); } catch {}
+    }
+  }
+}
+
+export async function scanCommonTcpPorts(ip, onProgress = null) {
+  const ports = [...COMMON_TCP_PORTS];
+  const open = [];
+  let done = 0;
+  const workers = Array.from({ length: 5 }, async () => {
+    while (ports.length) {
+      const port = ports.shift();
+      const result = await probeTcpPort(ip, port);
+      done++;
+      if (result.open) open.push(result);
+      if (onProgress) onProgress({ done, total: COMMON_TCP_PORTS.length, port, open: result.open });
+    }
+  });
+  await Promise.all(workers);
+  open.sort((a, b) => a.port - b.port);
+  for (const item of open) {
+    if ([80, 8080, 8899].includes(item.port)) item.banner = await probeHttp(ip, item.port);
+  }
+  return open;
 }
 
 export async function diagnoseZengge(ip) {
