@@ -20,6 +20,10 @@ function timeoutPromise(ms, message = 'Timeout') {
   return new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms));
 }
 
+function hex(bytes) {
+  return [...bytes].map(v => v.toString(16).padStart(2, '0')).join(' ');
+}
+
 export class ZenggeDevice {
   constructor(ip, port = PORT) {
     this.ip = ip;
@@ -50,7 +54,7 @@ export class ZenggeDevice {
     const response = await this.exchange(new Uint8Array([0x81, 0x8a, 0x8b, 0x96]), { read: true, timeout: 900 });
     if (!response || response.length < 4) throw new Error('Nessuna risposta ZENGGE');
     const head = response[0];
-    if (![0x81, 0x66, 0xea, 0xb0, 0xb1, 0xb2, 0xb3].includes(head)) throw new Error('Risposta TCP non riconosciuta');
+    if (![0x81, 0x66, 0xea, 0xb0, 0xb1, 0xb2, 0xb3].includes(head)) throw new Error(`Risposta TCP non riconosciuta: ${hex(response)}`);
     return { ip: this.ip, port: this.port, model: response[1] ?? null, raw: [...response] };
   }
 
@@ -58,8 +62,8 @@ export class ZenggeDevice {
     return this.exchange(packet([0x71, on ? 0x23 : 0x24, 0x0f]));
   }
 
-  async rgb(hex, brightness = 100) {
-    const value = parseInt(hex.replace('#', ''), 16);
+  async rgb(hexColor, brightness = 100) {
+    const value = parseInt(hexColor.replace('#', ''), 16);
     const r = scale((value >> 16) & 255, brightness);
     const g = scale((value >> 8) & 255, brightness);
     const b = scale(value & 255, brightness);
@@ -158,6 +162,26 @@ export async function scanCommonTcpPorts(ip, onProgress = null) {
     if ([80, 8080, 8899].includes(item.port)) item.banner = await probeHttp(ip, item.port);
   }
   return open;
+}
+
+export async function probeProtocolVariants(ip, port = PORT) {
+  const variants = [
+    { name: 'LEDENET 81 8A 8B 96', bytes: new Uint8Array([0x81, 0x8a, 0x8b, 0x96]) },
+    { name: 'LEDENET 81 8A 8B', bytes: new Uint8Array([0x81, 0x8a, 0x8b]) },
+    { name: 'ZENGGE EF 01 77', bytes: new Uint8Array([0xef, 0x01, 0x77]) },
+    { name: 'ZENGGE EF 01 77 + checksum', bytes: packet([0xef, 0x01, 0x77]) }
+  ];
+  const results = [];
+  for (const variant of variants) {
+    const device = new ZenggeDevice(ip, port);
+    try {
+      const reply = await device.exchange(variant.bytes, { read: true, timeout: 1200 });
+      results.push({ name: variant.name, response: reply?.length ? hex(reply) : 'connessione aperta, risposta vuota', error: null });
+    } catch (error) {
+      results.push({ name: variant.name, response: null, error: error?.message || String(error) });
+    }
+  }
+  return results;
 }
 
 export async function diagnoseZengge(ip) {
