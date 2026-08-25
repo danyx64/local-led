@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090a0d">
+  <title>Local LED IWA</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div><span class="eyebrow">LOCAL LED · IWA</span><h1>ZENGGE Wi‑Fi diretto</h1><p>TCP locale dal browser, senza bridge esterno.</p></div>
+      <span id="apiBadge" class="badge">CONTROLLO API</span>
+    </header>
+
+    <section class="grid">
+      <aside class="card devices">
+        <div class="title-row"><div><span class="label">LAMPADA</span><strong id="deviceName">Nessuna selezionata</strong></div><span id="statusBadge" class="status">OFFLINE</span></div>
+        <div id="deviceList" class="device-list"></div>
+        <div class="scan-box">
+          <label for="subnet">Subnet</label>
+          <div class="row"><input id="subnet" value="192.168.1" inputmode="decimal"><button id="scanBtn">Cerca</button></div>
+          <div class="row"><input id="manualIp" placeholder="192.168.1.50" inputmode="decimal"><button id="addBtn" class="secondary">Aggiungi IP</button></div>
+          <p id="scanText">La ricerca prova la porta TCP 5577 e verifica una risposta ZENGGE.</p>
+        </div>
+      </aside>
+
+      <section class="card controls">
+        <div class="title-row"><div><span class="label">STATO</span><strong id="powerText">Accesa</strong></div><button id="powerBtn" class="power on">⏻</button></div>
+        <label class="control"><span>Luminosità <output id="brightnessOut">75%</output></span><input id="brightness" type="range" min="1" max="100" value="75"></label>
+        <label class="control"><span>Bianco <output id="temperatureOut">4200K</output></span><div class="temp-labels"><small>Caldo</small><small>Freddo</small></div><input id="temperature" type="range" min="2700" max="6500" step="100" value="4200"></label>
+        <div class="presets">
+          <button data-color="#ff3b30" style="--c:#ff3b30"></button><button data-color="#ff9500" style="--c:#ff9500"></button><button data-color="#ffd60a" style="--c:#ffd60a"></button><button data-color="#34c759" style="--c:#34c759"></button><button data-color="#0a84ff" style="--c:#0a84ff"></button><button data-color="#bf5af2" style="--c:#bf5af2"></button>
+        </div>
+      </section>
+
+      <section class="card color-card">
+        <div class="title-row"><div><span class="label">COLORE</span><strong>Tavolozza</strong></div><span id="colorDot" class="color-dot"></span></div>
+        <div class="picker-wrap"><input id="colorPicker" type="color" value="#7c5cff"><button id="pickerBtn" class="wheel"><span><small>TOCCA</small><b id="hexOut">#7C5CFF</b></span></button></div>
+        <div class="quick"><button data-temp="2700">☀️ Caldo</button><button data-temp="4200">◐ Neutro</button><button data-temp="6500">❄️ Freddo</button></div>
+      </section>
+    </section>
+
+    <footer><span>Direct Sockets · TCP 5577</span><span id="footerText">Pronta per test ZENGGE</span></footer>
+  </main>
+  <div id="toast" class="toast"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
