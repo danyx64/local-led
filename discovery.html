@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#111318">
-  <meta name="description" content="Rileva e salva lampadine nella rete locale con Local LED.">
+  <meta name="theme-color" content="#0b0d12">
+  <meta name="description" content="Rileva lampadine Surplife, Magic Home e Zengge con Local LED.">
   <title>Rileva lampade · Local LED</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -12,61 +12,67 @@
   <main class="app-shell discovery-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">LOCAL LED · RETE LOCALE</p>
-        <h1>Rileva le lampade.</h1>
+        <p class="eyebrow">LOCAL LED · SURPLIFE</p>
+        <h1>Rileva le lampade</h1>
+        <p class="subtitle">Surplife, Magic Home e Zengge sulla tua rete locale.</p>
       </div>
       <a class="secondary-btn link-btn" href="index.html">← Telecomando</a>
     </header>
 
-    <section class="discovery-grid">
-      <section class="card discovery-card">
+    <section class="bridge-banner card" id="bridgeBanner">
+      <div class="bridge-status-dot" id="bridgeDot"></div>
+      <div class="grow">
+        <span class="label">BRIDGE LOCALE</span>
+        <strong id="bridgeTitle">Controllo connessione…</strong>
+        <p id="bridgeText" class="helper">Il browser non può aprire direttamente i socket TCP/UDP usati da Surplife.</p>
+      </div>
+      <button id="retryBridgeBtn" class="small-btn" type="button">Riprova</button>
+    </section>
+
+    <section class="discovery-grid improved">
+      <section class="card discovery-card scan-card">
         <div class="section-heading">
           <div>
-            <span class="label">SCANSIONE</span>
-            <strong>Rete Wi-Fi locale</strong>
+            <span class="label">RILEVAMENTO</span>
+            <strong>Trova lampade Surplife</strong>
           </div>
           <span id="scanBadge" class="status demo">PRONTA</span>
         </div>
 
-        <p class="helper discovery-copy">Il browser non può enumerare la rete come un'app nativa. Local LED prova, su tua richiesta, gli indirizzi della subnet indicata e mostra gli host web raggiungibili. Chrome può chiedere il permesso per la rete locale.</p>
+        <p class="discovery-copy">La ricerca usa il protocollo originale Zengge tramite il bridge locale. Non serve inserire la subnet e non vengono inviati dati su Internet.</p>
 
-        <div class="subnet-row">
-          <div>
-            <label for="subnet">Subnet</label>
-            <div class="subnet-input">
-              <input id="subnet" value="192.168.1" inputmode="decimal" autocomplete="off" aria-label="Primi tre gruppi dell'indirizzo IP">
-              <span>.1–254</span>
-            </div>
-          </div>
-          <button id="startScanBtn" class="primary-btn" type="button">Cerca lampade</button>
-        </div>
-
+        <button id="startScanBtn" class="primary-btn scan-main-btn" type="button">⌁ Cerca lampade</button>
         <div class="progress-wrap" hidden id="progressWrap">
-          <div class="progress-line"><span id="progressBar"></span></div>
-          <div class="scan-meta"><span id="progressText">0 / 254</span><button id="stopScanBtn" type="button" class="text-btn">Interrompi</button></div>
+          <div class="progress-line indeterminate"><span id="progressBar"></span></div>
+          <div class="scan-meta"><span id="progressText">Ricerca in corso…</span></div>
         </div>
 
         <div class="manual-add">
           <span class="label">CONOSCI GIÀ L'IP?</span>
-          <div class="input-row">
+          <div class="manual-grid">
             <input id="manualIp" placeholder="192.168.1.50" inputmode="decimal" autocomplete="off">
+            <select id="manualProtocol" aria-label="Protocollo lampada">
+              <option value="surplife">Surplife / Magic Home</option>
+              <option value="wled">WLED</option>
+              <option value="unknown">Altro / sconosciuto</option>
+            </select>
             <button id="manualAddBtn" class="small-btn" type="button">Aggiungi</button>
           </div>
         </div>
       </section>
 
-      <section class="card discovery-card">
+      <section class="card discovery-card results-card">
         <div class="section-heading">
           <div>
-            <span class="label">TROVATE</span>
-            <strong>Dispositivi raggiungibili</strong>
+            <span class="label">RISULTATI</span>
+            <strong>Dispositivi trovati</strong>
           </div>
           <span id="foundCount" class="counter">0</span>
         </div>
         <div id="scanResults" class="scan-results empty-state">
           <span class="empty-icon">⌁</span>
           <strong>Nessuna scansione ancora</strong>
-          <p>Avvia la ricerca oppure inserisci manualmente l'IP della lampada.</p>
+          <p>Avvia la ricerca quando il bridge locale risulta connesso.</p>
         </div>
       </section>
 
@@ -79,16 +85,12 @@
           <button id="clearAllBtn" class="text-btn danger" type="button">Cancella tutte</button>
         </div>
         <div id="savedDevices" class="saved-devices"></div>
-        <p class="helper">I dati restano solo su questo browser/dispositivo. Nessun account e nessun cloud.</p>
+        <p class="helper">Nome, IP e ultime impostazioni restano solo su questo browser/dispositivo.</p>
       </section>
     </section>
 
-    <footer>
-      <span>Local LED</span>
-      <span>Discovery locale · dati salvati sul dispositivo</span>
-    </footer>
+    <footer><span>Local LED</span><span>Surplife via bridge locale · nessun account</span></footer>
   </main>
-
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="discovery.js"></script>
 </body>
