@@ -1,4 +1,4 @@
-import { ZenggeDevice, probeZengge, diagnoseZengge, scanCommonTcpPorts } from './zengge.js';
+import { ZenggeDevice, probeZengge, diagnoseZengge, scanCommonTcpPorts, probeProtocolVariants } from './zengge.js';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -37,9 +37,34 @@ function applyUi() {
   $('#colorDot').style.background = state.color; $('#hexOut').textContent = state.color.toUpperCase(); $('#colorPicker').value = state.color;
 }
 function render() {
+  const list = $('#deviceList');
+  list.replaceChildren();
   const devices = loadDevices();
-  $('#deviceList').innerHTML = devices.length ? devices.map(d => `<button class="device ${current?.id === d.id ? 'active' : ''}" data-id="${d.id}"><span>💡</span><span><b>${d.name}</b><small>${d.ip} · ${d.port ? `TCP ${d.port}` : 'diagnostica'}</small></span></button>`).join('') : '<div class="empty">Nessuna lampada salvata.</div>';
-  $$('.device').forEach(b => b.onclick = () => select(b.dataset.id));
+  if (!devices.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = 'Nessuna lampada salvata.';
+    list.append(empty);
+    return;
+  }
+  for (const d of devices) {
+    const button = document.createElement('button');
+    button.className = `device ${current?.id === d.id ? 'active' : ''}`.trim();
+    button.type = 'button';
+    button.dataset.id = d.id;
+
+    const icon = document.createElement('span');
+    icon.textContent = '💡';
+    const info = document.createElement('span');
+    const name = document.createElement('b');
+    name.textContent = d.name;
+    const detail = document.createElement('small');
+    detail.textContent = `${d.ip} · ${d.port ? `TCP ${d.port}` : 'diagnostica'}`;
+    info.append(name, detail);
+    button.append(icon, info);
+    button.addEventListener('click', () => select(d.id));
+    list.append(button);
+  }
 }
 function select(id) {
   const d = loadDevices().find(x => x.id === id); if (!d) return;
@@ -106,7 +131,7 @@ $('#diagBtn').onclick = async () => {
     if (d.discovery) parts.push(`Discovery: ${d.discovery}`);
     if (d.version) parts.push(`Versione: ${d.version}`);
     if (d.remoteAccess) parts.push(`Remote: ${d.remoteAccess}`);
-    if (d.tcp5577) parts.push('TCP 5577: OK'); else parts.push(`TCP 5577: ${d.tcpError || 'nessuna risposta'}`);
+    if (d.tcp5577) parts.push('TCP 5577: ZENGGE OK'); else parts.push(`TCP 5577: ${d.tcpError || 'nessuna risposta'}`);
     $('#scanText').textContent = parts.join(' · ') || 'Nessuna risposta ZENGGE su UDP 48899 o TCP 5577.';
     if (d.udp48899 || d.tcp5577) {
       const modelMatch = d.version?.match(/^\+ok=([^\r\n]+)/);
@@ -128,10 +153,11 @@ $('#advancedDiagBtn').onclick = async () => {
     const openPorts = await scanCommonTcpPorts(ip, p => {
       $('#scanText').textContent = `Diagnostica avanzata ${p.done}/${p.total} · ultima TCP ${p.port}${p.open ? ' APERTA' : ''}`;
     });
+    const variants = openPorts.some(p => p.port === 5577) ? await probeProtocolVariants(ip, 5577) : [];
     const lines = [];
     lines.push(`IP: ${ip}`);
     lines.push(`UDP 48899: ${classic.udp48899 ? 'risponde' : 'nessuna risposta'}`);
-    lines.push(`TCP 5577: ${classic.tcp5577 ? 'ZENGGE OK' : 'non disponibile'}`);
+    lines.push(`TCP 5577 query classica: ${classic.tcp5577 ? 'risponde' : 'nessuna risposta'}`);
     if (classic.discovery) lines.push(`Discovery: ${classic.discovery}`);
     if (classic.version) lines.push(`Versione: ${classic.version}`);
     if (openPorts.length) {
@@ -140,7 +166,12 @@ $('#advancedDiagBtn').onclick = async () => {
     } else {
       lines.push('Nessuna delle porte TCP comuni ha accettato la connessione.');
     }
+    if (variants.length) {
+      lines.push('Test protocollo TCP 5577:');
+      for (const v of variants) lines.push(`- ${v.name}: ${v.response ? v.response : v.error}`);
+    }
     box.textContent = lines.join('\n');
+    if (openPorts.some(p => p.port === 5577)) addDevice(ip, { port: 5577 });
     $('#scanText').textContent = openPorts.length ? `Diagnostica completata · ${openPorts.length} porte TCP aperte.` : 'Diagnostica completata · nessuna porta comune aperta.';
     toast(openPorts.length ? `Trovate ${openPorts.length} porte aperte` : 'Nessuna porta TCP comune aperta');
   } catch (e) {
