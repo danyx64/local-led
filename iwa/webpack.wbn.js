@@ -32,6 +32,7 @@ module.exports = {
       { from: 'app.js', to: 'app.js' },
       { from: 'zengge.js', to: 'zengge.js' },
       { from: 'style.css', to: 'style.css' },
+      { from: 'icon.svg', to: 'icon.svg' },
       { from: '.well-known/manifest.webmanifest', to: '.well-known/manifest.webmanifest' }
     ]}),
     bundlePlugin
