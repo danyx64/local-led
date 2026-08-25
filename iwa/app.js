@@ -1,4 +1,4 @@
-import { ZenggeDevice, probeZengge } from './zengge.js';
+import { ZenggeDevice, probeZengge, diagnoseZengge } from './zengge.js';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -15,7 +15,7 @@ const loadSettings = () => { try { return JSON.parse(localStorage.getItem(SETTIN
 
 function toast(text) {
   const el = $('#toast'); el.textContent = text; el.classList.add('show');
-  clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove('show'), 1900);
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove('show'), 2600);
 }
 function validIp(ip) { return /^((25[0-5]|2[0-4]\d|1?\d?\d)(\.|$)){4}$/.test(ip); }
 function saveState() {
@@ -38,23 +38,32 @@ function applyUi() {
 }
 function render() {
   const devices = loadDevices();
-  $('#deviceList').innerHTML = devices.length ? devices.map(d => `<button class="device ${current?.id === d.id ? 'active' : ''}" data-id="${d.id}"><span>💡</span><span><b>${d.name}</b><small>${d.ip} · TCP 5577</small></span></button>`).join('') : '<div class="empty">Nessuna lampada salvata.</div>';
+  $('#deviceList').innerHTML = devices.length ? devices.map(d => `<button class="device ${current?.id === d.id ? 'active' : ''}" data-id="${d.id}"><span>💡</span><span><b>${d.name}</b><small>${d.ip} · ${d.port ? `TCP ${d.port}` : 'diagnostica'}</small></span></button>`).join('') : '<div class="empty">Nessuna lampada salvata.</div>';
   $$('.device').forEach(b => b.onclick = () => select(b.dataset.id));
 }
 function select(id) {
   const d = loadDevices().find(x => x.id === id); if (!d) return;
   current = d; Object.assign(state, { power:true, brightness:75, temperature:4200, color:'#7c5cff', mode:'color' }, loadSettings()[id] || {});
-  $('#deviceName').textContent = d.name; $('#statusBadge').textContent = 'PRONTA'; $('#statusBadge').classList.add('ok'); $('#footerText').textContent = `${d.ip}:5577`;
+  $('#deviceName').textContent = d.name; $('#statusBadge').textContent = d.port ? 'PRONTA' : 'RILEVATA'; $('#statusBadge').classList.add('ok'); $('#footerText').textContent = d.port ? `${d.ip}:${d.port}` : `${d.ip} · UDP rilevata`;
   localStorage.setItem('localLedIwaSelected', id); applyUi(); render();
 }
 function addDevice(ip, meta = {}) {
   const devices = loadDevices(); let d = devices.find(x => x.ip === ip);
-  if (!d) { d = { id: crypto.randomUUID(), ip, name: `ZENGGE ${ip.split('.').at(-1)}`, model: meta.model ?? null }; devices.push(d); saveDevices(devices); }
-  select(d.id); return d;
+  if (!d) {
+    d = { id: crypto.randomUUID(), ip, name: meta.name || `ZENGGE ${ip.split('.').at(-1)}`, model: meta.model ?? null, port: meta.port ?? null, version: meta.version ?? null };
+    devices.push(d);
+  } else {
+    if (meta.port) d.port = meta.port;
+    if (meta.model != null) d.model = meta.model;
+    if (meta.version) d.version = meta.version;
+    if (meta.name) d.name = meta.name;
+  }
+  saveDevices(devices); select(d.id); return d;
 }
 async function command(kind) {
   if (!current) return toast('Seleziona prima una lampada');
-  const d = new ZenggeDevice(current.ip);
+  if (!current.port) throw new Error('Lampada rilevata ma porta di controllo non disponibile');
+  const d = new ZenggeDevice(current.ip, current.port);
   if (kind === 'power') await d.power(state.power);
   if (kind === 'rgb') await d.rgb(state.color, state.brightness);
   if (kind === 'white') await d.white(state.temperature, state.brightness);
@@ -65,7 +74,7 @@ function queueSend(kind, delay = 90) {
   clearTimeout(sendTimer); sendTimer = setTimeout(() => command(kind).catch(e => { $('#statusBadge').textContent = 'ERRORE'; $('#statusBadge').classList.remove('ok'); toast(e.message); }), delay);
 }
 
-$('#apiBadge').textContent = globalThis.TCPSocket ? 'DIRECT SOCKETS OK' : 'DIRECT SOCKETS OFF';
+$('#apiBadge').textContent = globalThis.TCPSocket && globalThis.UDPSocket ? 'DIRECT SOCKETS OK' : globalThis.TCPSocket ? 'TCP OK · UDP OFF' : 'DIRECT SOCKETS OFF';
 $('#apiBadge').classList.toggle('ok', !!globalThis.TCPSocket);
 $('#scanBtn').onclick = async () => {
   if (!globalThis.TCPSocket) return toast('Questa pagina deve essere installata come IWA');
@@ -85,7 +94,30 @@ $('#scanBtn').onclick = async () => {
 };
 $('#addBtn').onclick = async () => {
   const ip = $('#manualIp').value.trim(); if (!validIp(ip)) return toast('IP non valido');
-  try { const meta = await probeZengge(ip); addDevice(ip, meta); toast('ZENGGE collegata'); } catch (e) { toast(`Nessuna ZENGGE: ${e.message}`); }
+  try { const meta = await probeZengge(ip); addDevice(ip, meta); toast('ZENGGE collegata su TCP 5577'); }
+  catch (e) { toast(`TCP 5577: ${e.message}. Prova Diagnostica IP.`); }
+};
+$('#diagBtn').onclick = async () => {
+  const ip = $('#manualIp').value.trim(); if (!validIp(ip)) return toast('IP non valido');
+  $('#diagBtn').disabled = true; $('#scanText').textContent = `Diagnostica ${ip}: UDP 48899 + TCP 5577…`;
+  try {
+    const d = await diagnoseZengge(ip);
+    const parts = [];
+    if (d.discovery) parts.push(`Discovery: ${d.discovery}`);
+    if (d.version) parts.push(`Versione: ${d.version}`);
+    if (d.remoteAccess) parts.push(`Remote: ${d.remoteAccess}`);
+    if (d.tcp5577) parts.push('TCP 5577: OK'); else parts.push(`TCP 5577: ${d.tcpError || 'nessuna risposta'}`);
+    $('#scanText').textContent = parts.join(' · ') || 'Nessuna risposta ZENGGE su UDP 48899 o TCP 5577.';
+    if (d.udp48899 || d.tcp5577) {
+      const modelMatch = d.version?.match(/^\+ok=([^\r\n]+)/);
+      addDevice(ip, { port: d.tcp5577 ? 5577 : null, version: d.version, name: modelMatch ? `ZENGGE ${modelMatch[1]}` : `ZENGGE ${ip.split('.').at(-1)}` });
+      toast(d.tcp5577 ? 'ZENGGE controllabile trovata' : 'ZENGGE rilevata via UDP; TCP 5577 non disponibile');
+    } else {
+      toast('Nessuna risposta dal protocollo ZENGGE classico');
+    }
+  } catch (e) {
+    $('#scanText').textContent = `Errore diagnostica: ${e.message}`; toast(e.message);
+  } finally { $('#diagBtn').disabled = false; }
 };
 $('#powerBtn').onclick = () => { state.power = !state.power; saveState(); applyUi(); queueSend('power', 0); };
 $('#brightness').oninput = e => { state.brightness = Number(e.target.value); $('#brightnessOut').textContent = `${state.brightness}%`; saveState(); queueSend(state.mode === 'white' ? 'white' : 'rgb', 120); };
