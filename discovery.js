@@ -22,30 +22,29 @@ function loadDevices() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
   catch { return []; }
 }
-
-function saveDevices(devices) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(devices));
-}
-
+function saveDevices(devices) { localStorage.setItem(STORAGE_KEY, JSON.stringify(devices)); }
 function loadSettings() {
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }
   catch { return {}; }
 }
 
-function ensureDevice(ip, name = null) {
+function ensureDevice(ip, name = null, protocol = 'unknown') {
   const devices = loadDevices();
-  let device = devices.find((item) => item.ip === ip);
+  let device = devices.find(item => item.ip === ip);
   if (!device) {
     device = {
       id: crypto.randomUUID ? crypto.randomUUID() : `led-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       ip,
       name: name || `Lampada ${ip.split('.').at(-1)}`,
-      protocol: 'unknown',
+      protocol,
       addedAt: new Date().toISOString()
     };
     devices.push(device);
-    saveDevices(devices);
+  } else if (protocol !== 'unknown') {
+    device.protocol = protocol;
+    if (name) device.name = name;
   }
+  saveDevices(devices);
 
   const settings = loadSettings();
   if (!settings[device.id]) {
@@ -93,15 +92,19 @@ function renderFound() {
     return;
   }
   wrap.className = 'scan-results';
-  wrap.innerHTML = found.map(ip => `
+  wrap.innerHTML = found.map(item => `
     <div class="found-device">
       <span class="bulb">💡</span>
-      <div class="device-meta grow"><strong>${ip}</strong><span>Host locale raggiungibile</span></div>
-      <button class="small-btn save-found" data-ip="${ip}" type="button">Salva</button>
+      <div class="device-meta grow">
+        <strong>${item.name || item.ip}</strong>
+        <span>${item.ip} · ${item.protocol === 'wled' ? 'WLED compatibile' : 'host locale raggiungibile'}</span>
+      </div>
+      <button class="small-btn save-found" data-ip="${item.ip}" type="button">Salva</button>
     </div>`).join('');
 
   document.querySelectorAll('.save-found').forEach(button => button.addEventListener('click', () => {
-    ensureDevice(button.dataset.ip);
+    const item = found.find(entry => entry.ip === button.dataset.ip);
+    ensureDevice(item.ip, item.name, item.protocol);
     renderSaved();
     button.textContent = 'Salvata';
     button.disabled = true;
@@ -109,20 +112,36 @@ function renderFound() {
   }));
 }
 
-async function probe(ip, timeout = 900) {
+async function probeWled(ip, timeout = 1100) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(`http://${ip}/json/info`, {
+      method: 'GET', cache: 'no-store', credentials: 'omit', signal: controller.signal
+    });
+    if (!response.ok) return null;
+    const info = await response.json();
+    if (info && (info.ver || info.leds || info.name)) {
+      return { ip, protocol: 'wled', name: info.name || `WLED ${ip.split('.').at(-1)}` };
+    }
+  } catch {}
+  finally { clearTimeout(timer); }
+  return null;
+}
+
+async function probeHost(ip, timeout = 900) {
+  const wled = await probeWled(ip, Math.min(timeout + 250, 1200));
+  if (wled) return wled;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
     await fetch(`http://${ip}/`, {
-      method: 'GET',
-      mode: 'no-cors',
-      cache: 'no-store',
-      credentials: 'omit',
-      signal: controller.signal
+      method: 'GET', mode: 'no-cors', cache: 'no-store', credentials: 'omit', signal: controller.signal
     });
-    return true;
+    return { ip, protocol: 'unknown', name: null };
   } catch {
-    return false;
+    return null;
   } finally {
     clearTimeout(timer);
   }
@@ -146,14 +165,15 @@ async function scanSubnet(prefix) {
 
   const hosts = Array.from({ length: 254 }, (_, i) => i + 1);
   let completed = 0;
-  const concurrency = 14;
+  const concurrency = 12;
 
   async function worker() {
     while (hosts.length && !scanAbort) {
       const host = hosts.shift();
-      const ip = `${prefix}.${host}`;
-      if (await probe(ip)) {
-        found.push(ip);
+      const result = await probeHost(`${prefix}.${host}`);
+      if (result) {
+        found.push(result);
+        found.sort((a, b) => Number(a.ip.split('.').at(-1)) - Number(b.ip.split('.').at(-1)));
         renderFound();
       }
       completed += 1;
@@ -172,16 +192,18 @@ async function scanSubnet(prefix) {
 
 $('#startScanBtn').addEventListener('click', () => scanSubnet($('#subnet').value.trim()));
 $('#stopScanBtn').addEventListener('click', () => { scanAbort = true; });
-$('#manualAddBtn').addEventListener('click', () => {
+$('#manualAddBtn').addEventListener('click', async () => {
   const ip = $('#manualIp').value.trim();
   if (!isValidIp(ip)) return toast('Inserisci un IP valido');
-  ensureDevice(ip);
+  const detected = await probeWled(ip);
+  ensureDevice(ip, detected?.name || null, detected?.protocol || 'unknown');
   renderSaved();
-  toast('Lampada salvata');
+  toast(detected ? 'WLED rilevata e salvata' : 'Lampada salvata');
 });
 $('#clearAllBtn').addEventListener('click', () => {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(SETTINGS_KEY);
+  localStorage.removeItem('localLedSelectedDevice');
   renderSaved();
   toast('Lampade e impostazioni cancellate');
 });
